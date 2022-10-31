@@ -26,10 +26,14 @@ API will be implemented, documentation written and the whole service deployed so
 
 ## Current state
 
+Current status is that I'm moving this project to [PoC v2](#poc-v2).
+
+## Current/possible future features
+
 Features that this project _could_ possibly implement:
 
-- [ ] Being able to forecast fog for a single place - wind speed, relative humidity, dew point
-- [ ] Being able to forecast fog for various places
+- [x] Being able to forecast fog for a single place - wind speed, relative humidity, dew point
+- [x] Being able to forecast fog for various places
 - [ ] Provide public API for forecasts
 - [ ] Water coefficient: detect amount of water (ponds, lakes, rivers) near the place and convert to the coefficient
 - [ ] Terrain coefficient: detect valleys etc.

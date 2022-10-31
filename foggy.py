@@ -1,15 +1,14 @@
 #!/usr/bin/env python
-
+import datetime
 import json
 import sys
+from os import makedirs, chmod
+from time import sleep
 from zoneinfo import ZoneInfo
 
 import dateutil
 import requests
 import dateutil.parser
-
-lat = 50.5409239
-lon = 13.9374158
 
 
 def dew_point_coef(data):
@@ -57,10 +56,10 @@ def wind_coef(data):
     return 1
 
 
-def process_single(data):
+def process_single(time_point):
     # print(data)
-    details = data["data"]["instant"]["details"]
-    time = dateutil.parser.isoparse(data["time"]).astimezone(ZoneInfo('Europe/Berlin'))
+    details = time_point["data"]["instant"]["details"]
+    time = dateutil.parser.isoparse(time_point["time"]).astimezone(ZoneInfo('Europe/Berlin'))
 
     prob = 1.0
 
@@ -68,21 +67,53 @@ def process_single(data):
     prob *= humidity_coef(details)
     prob *= wind_coef(details)
 
-    print(f"{time}: {prob * 100:.2f}%")
+    return f"{time}: {prob * 100:.2f}%"
 
 
-def forecast():
-    if len(sys.argv) == 2:
-        r = json.loads(open(sys.argv[1], "r").read())
-    else:
-        url = f'https://api.met.no/weatherapi/locationforecast/2.0/complete?lat={lat}&lon={lon}'
-        r = requests.get(url, headers={"user-agent": "foggy github.com/jendakol/foggy"}).json()
+def forecast(now, dir, place):
+    response_file = f"{dir}/response_{now}.json"
+    forecast_file = f"{dir}/forecast_{now}.txt"
+    webcam_file = f"{dir}/webcam_{now}.jpg"
+
+    url = f'https://api.met.no/weatherapi/locationforecast/2.0/complete?lat={place["lat"]}&lon={place["lon"]}'
+    r = requests.get(url, headers={"user-agent": "foggy github.com/jendakol/foggy"}).json()
 
     series = r["properties"]["timeseries"]
 
-    for data in series:
-        process_single(data)
+    result = ""
+
+    for time_point in series:
+        result += process_single(time_point) + "\n"
+
+    with open(response_file, "w", encoding='utf-8') as f:
+        f.write(json.dumps(r))
+
+    chmod(response_file, 0o666)
+
+    with open(forecast_file, "w", encoding='utf-8') as f:
+        f.write(result)
+
+    chmod(forecast_file, 0o666)
+
+    r = requests.get(place["webcam_link"], headers={"user-agent": "foggy github.com/jendakol/foggy"})
+    with open(webcam_file, "wb") as f:
+        f.write(r.content)
+
+    chmod(webcam_file, 0o666)
 
 
 if __name__ == '__main__':
-    forecast()
+    if len(sys.argv) != 2:
+        raise Exception("Please provide path to places config")
+
+    now = datetime.datetime.now().strftime("%Y%m%d-%H%M")
+
+    places = json.loads(open(sys.argv[1], "r").read())
+
+    for place in places:
+        dir = f"/output/{place['dir']}/{now}"
+        makedirs(dir, mode=0o777, exist_ok=True)
+        chmod(dir, 0o777)  # sad but needed
+        print(f"Processing {place['name']} into {dir}")
+        forecast(now, dir, place)
+        sleep(1)
